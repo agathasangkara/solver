@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAPTCHA Solver API</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,0.06);
+    --text: #e8e8ec;
+    --text-muted: #6b6b78;
+    --accent: #7fff72;
+    --accent2: #5ee6ff;
+    --accent-glow: rgba(127,255,114,0.15);
+    --radius: 14px;
+  }
+
+  * {
+    margin: 0; padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .bg-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.35;
+  }
+  .bg-orb--1 {
+    width: 500px; height: 500px;
+    background: #7fff7240;
+    top: -150px; left: -100px;
+    animation: float1 8s ease-in-out infinite;
+  }
+  .bg-orb--2 {
+    width: 400px; height: 400px;
+    background: #5ee6ff30;
+    bottom: 10%; right: -120px;
+    animation: float2 10s ease-in-out infinite;
+  }
+  .bg-orb--3 {
+    width: 300px; height: 300px;
+    background: #7fff7220;
+    bottom: 30%; left: 20%;
+    animation: float3 12s ease-in-out infinite;
+  }
+
+  @keyframes float1 {
+    0%,100% { transform: translate(0,0) scale(1); }
+    50%     { transform: translate(60px,80px) scale(1.1); }
+  }
+  @keyframes float2 {
+    0%,100% { transform: translate(0,0) scale(1); }
+    50%     { transform: translate(-50px,-60px) scale(0.9); }
+  }
+  @keyframes float3 {
+    0%,100% { transform: translate(0,0); }
+    50%     { transform: translate(-40px,50px); }
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px 120px;
+  }
+
+  .header {
+    padding-top: 80px;
+    text-align: center;
+    margin-bottom: 64px;
+  }
+  .header__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 6px 16px 6px 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+    animation: fadeUp 0.6s cubic-bezier(.22,1,.36,1) both;
+  }
+  .header__badge .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+  }
+
+  .header h1 {
+    font-size: clamp(40px, 7vw, 72px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -3px;
+    background: linear-gradient(135deg, #fff 30%, var(--accent) 60%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: fadeUp 0.6s 0.1s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  .header p {
+    margin-top: 20px;
+    font-size: 16px;
+    color: var(--text-muted);
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+    font-weight: 400;
+    animation: fadeUp 0.6s 0.2s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .base-url {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 48px;
+    animation: fadeUp 0.6s 0.3s cubic-bezier(.22,1,.36,1) both;
+  }
+  .base-url__label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .base-url__code {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--accent2);
+    background: rgba(94,230,255,0.08);
+    padding: 5px 12px;
+    border-radius: 8px;
+    flex: 1;
+    overflow-x: auto;
+  }
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+  }
+  .copy-btn.copied {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: cardIn 0.5s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  .card:hover {
+    border-color: rgba(127,255,114,0.25);
+    box-shadow: 0 0 30px rgba(127,255,114,0.06);
+  }
+
+  @keyframes cardIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card:nth-child(1) { animation-delay: 0.35s; }
+  .card:nth-child(2) { animation-delay: 0.42s; }
+  .card:nth-child(3) { animation-delay: 0.49s; }
+  .card:nth-child(4) { animation-delay: 0.56s; }
+  .card:nth-child(5) { animation-delay: 0.63s; }
+  .card:nth-child(6) { animation-delay: 0.70s; }
+  .card:nth-child(7) { animation-delay: 0.77s; }
+
+  .card__head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 22px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+  }
+  .card__head:hover {
+    background: rgba(255,255,255,0.02);
+  }
+
+  .card__icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .card__icon--cf  { background: rgba(94,230,255,0.1); }
+  .card__icon--v3  { background: rgba(127,255,114,0.1); }
+  .card__icon--v2  { background: rgba(255,160,127,0.1); }
+  .card__icon--res { background: rgba(180,127,255,0.1); }
+
+  .card__icon svg {
+    width: 20px; height: 20px;
+  }
+
+  .card__meta {
+    flex: 1;
+    min-width: 0;
+  }
+  .card__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .card__method {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    background: rgba(127,255,114,0.12);
+    color: var(--accent);
+    padding: 3px 8px;
+    border-radius: 5px;
+    letter-spacing: 0.5px;
+  }
+  .card__path {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card__chevron {
+    color: var(--text-muted);
+    transition: transform 0.35s cubic-bezier(.22,1,.36,1);
+    flex-shrink: 0;
+  }
+  .card.open .card__chevron {
+    transform: rotate(180deg);
+  }
+
+  .card__body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(.22,1,.36,1);
+  }
+  .card.open .card__body {
+    max-height: 2400px;
+  }
+  .card__inner {
+    padding: 0 22px 22px;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin-bottom: 20px;
+  }
+
+  .card__desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .params-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .params-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 22px;
+  }
+  .params-table th {
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .params-table td {
+    padding: 10px 0;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: top;
+  }
+  .params-table td:first-child {
+    font-family: 'DM Mono', monospace;
+    color: var(--accent2);
+    font-size: 12px;
+    width: 140px;
+  }
+  .params-table td:nth-child(2) {
+    color: var(--text);
+    padding-right: 12px;
+  }
+  .params-table td:last-child {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .tag-req {
+    color: #ff6b6b;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    background: rgba(255,107,107,0.1);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .tag-opt {
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    background: rgba(255,255,255,0.05);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  .code-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .code-block__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .code-block__dots {
+    display: flex;
+    gap: 6px;
+  }
+  .code-block__dots span {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+  .code-block__dots span:nth-child(1) { background: #ff5f57; }
+  .code-block__dots span:nth-child(2) { background: #febc2e; }
+  .code-block__dots span:nth-child(3) { background: #28c840; }
+
+  .code-block__copy {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .code-block__copy:hover { color: var(--accent); }
+
+  .code-block pre {
+    padding: 16px;
+    overflow-x: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .code-block .c-dim   { color: var(--text-muted); }
+  .code-block .c-key   { color: var(--accent2); }
+  .code-block .c-str   { color: #f0c97a; }
+  .code-block .c-acc   { color: var(--accent); }
+  .code-block .c-brk   { color: #a78bfa; }
+
+  /* Response badges */
+  .response-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+  }
+  .res-code {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 6px;
+    min-width: 48px;
+    text-align: center;
+  }
+  .res-code--200 { background: rgba(127,255,114,0.1); color: var(--accent); }
+  .res-code--202 { background: rgba(94,230,255,0.1); color: var(--accent2); }
+  .res-code--400 { background: rgba(255,160,127,0.1); color: #ffa07f; }
+  .res-code--429 { background: rgba(255,107,107,0.1); color: #ff6b6b; }
+  .res-code--404 { background: rgba(180,127,255,0.1); color: #b47fff; }
+  .res-code--408 { background: rgba(255,200,50,0.1); color: #ffc832; }
+
+  .res-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .full-url {
+    margin-top: 18px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .full-url__label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .full-url__label span {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .full-url__label button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .full-url__label button:hover { color: var(--accent); }
+  .full-url__body {
+    padding: 13px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11.5px;
+    line-height: 1.8;
+    color: var(--text);
+    overflow-x: auto;
+    word-break: break-all;
+  }
+
+  .full-url__body,
+  .code-block pre {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  .full-url__body::-webkit-scrollbar,
+  .code-block pre::-webkit-scrollbar {
+    height: 4px;
+  }
+  .full-url__body::-webkit-scrollbar-track,
+  .code-block pre::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .full-url__body::-webkit-scrollbar-thumb,
+  .code-block pre::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.12);
+    border-radius: 99px;
+  }
+  .full-url__body::-webkit-scrollbar-thumb:hover,
+  .code-block pre::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.22);
+  }
+
+  .res-json {
+    margin-top: 14px;
+  }
+  .res-json__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    flex-wrap: nowrap;
+  }
+  .res-json__badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .res-json__title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .req-section {
+    margin-top: 56px;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: cardIn 0.5s 0.85s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  .req-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .req-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.3s;
+  }
+  .req-card:hover {
+    border-color: rgba(127,255,114,0.2);
+  }
+  .req-card__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .req-card__icon {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .req-card__icon--py  { background: rgba(55,118,171,0.15); }
+  .req-card__icon--pkg { background: rgba(127,255,114,0.12); }
+  .req-card__icon--sys { background: rgba(94,230,255,0.12); }
+  .req-card__icon--net { background: rgba(180,127,255,0.12); }
+  .req-card__icon svg { width: 17px; height: 17px; }
+  .req-card h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .req-card p {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+  .req-card .req-tags {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .req-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--accent2);
+    padding: 3px 9px;
+    border-radius: 6px;
+  }
+  @media (max-width: 600px) {
+    .req-grid { grid-template-columns: 1fr; }
+  }
+  .footer {
+    text-align: center;
+    padding-top: 40px;
+    font-size: 12px;
+    color: var(--text-muted);
+    opacity: 0;
+    animation: cardIn 0.5s 1.1s cubic-bezier(.22,1,.36,1) forwards;
+  }
+
+  @media (max-width: 600px) {
+    .wrapper { padding: 0 16px 100px; }
+    .header  { padding-top: 50px; margin-bottom: 40px; }
+    .header h1 { letter-spacing: -2px; }
+    .card__head { padding: 16px; gap: 12px; }
+    .card__inner { padding: 0 16px 18px; }
+    .base-url { flex-wrap: wrap; }
+    .base-url__code { font-size: 12px; }
+    .params-table td:first-child { width: 100px; font-size: 11px; }
+    .download-section { padding: 28px 20px; }
+    .card__icon { width: 36px; height: 36px; border-radius: 9px; }
+    .card__icon svg { width: 18px; height: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-orb bg-orb--1"></div>
+<div class="bg-orb bg-orb--2"></div>
+<div class="bg-orb bg-orb--3"></div>
+
+<div class="wrapper">
+
+  <header class="header">
+    <div class="header__badge">
+      <span class="dot"></span>
+      Live · v1.0
+    </div>
+    <h1>CAPTCHA Solver<br></h1>
+    <p>A headless, async CAPTCHA solving service built with Camoufox. Supports Cloudflare Turnstile, reCAPTCHA v2, v2 Invisible, v2 Enterprise, v3, and v3 Enterprise.</p>
+  </header>
+
+  <div class="base-url">
+    <span class="base-url__label">Base URL</span>
+    <span class="base-url__code" id="baseUrl">http://127.0.0.1:{PORT}</span>
+    <button class="copy-btn" onclick="copyBase(this)" title="Copy">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    </button>
+  </div>
+
+  <div class="section-label">Endpoints</div>
+  <div class="cards">
+
+    <!-- 1. Turnstile -->
+    <div class="card" onclick="toggle(this)">
+      <div class="card__head">
+        <div class="card__icon card__icon--cf">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#5ee6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="card__meta">
+          <div class="card__title"><span class="card__method">GET</span> Cloudflare Turnstile</div>
+          <div class="card__path">/turnstile</div>
+        </div>
+        <div class="card__chevron">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="card__body">
+        <div class="card__inner">
+          <div class="divider"></div>
+          <p class="card__desc">Solves Cloudflare Turnstile challenges. Submits the task asynchronously and returns a <code style="color:var(--accent2);font-family:'DM Mono',monospace;font-size:12px;">task_id</code> — poll <code style="color:var(--accent2);font-family:'DM Mono',monospace;font-size:12px;">/result</code> to retrieve the token.</p>
+          <div class="params-label">Parameters</div>
+          <table class="params-table">
+            <thead><tr><th>Name</th><th>Description</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>url</td><td>Target page URL</td><td><span class="tag-req">required</span></td></tr>
+              <tr><td>sitekey</td><td>Turnstile site key</td><td><span class="tag-req">required</span></td></tr>
+              <tr><td>action</td><td>Turnstile action value</td><td><span class="tag-opt">optional</span></td></tr>
+              <tr><td>cdata</td><td>Turnstile custom data</td><td><span class="tag-opt">optional</span></td></tr>
+            </tbody>
+          </table>
+          <div class="params-label">Example</div>
+          <div class="code-block">
+            <div class="code-block__header">
+              <div class="code-block__dots"><span></span><span></span><span></span></div>
+              <button class="code-block__copy" onclick="copyCode(this)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                copy
+              </button>
+            </div>
+            <pre><span class="c-dim">GET</span> /turnstile<span class="c-dim">?</span><span class="c-key">url</span>=<span class="c-str">https://example.com</span>&amp;<span class="c-key">sitekey</span>=<span class="c-str">0x4AAAAAAABBBBcc...</span></pre>
+          </div>
+          <div class="params-label" style="margin-top:18px;">Responses</div>
+          <div class="response-row"><span class="res-code res-code--202">202</span><span class="res-desc">Task accepted — returns <code style="font-family:'DM Mono',monospace;color:var(--accent2);font-size:11px;">task_id</code></span></div>
+          <div class="response-row"><span class="res-code res-code--400">400</span><span class="res-desc">Missing required parameters</span></div>
+          <div class="response-row"><span class="res-code res-code--429">429</span><span class="res-desc">Server at max capacity</span></div>
+
+          <div class="full-url">
+            <div class="full-url__label">
+              <span>Full URL</span>
+              <button onclick="copyFullUrl(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button>
+            </div>
+            <pre class="full-url__body">http://127.0.0.1:5032/turnstile?url=https://example.com&amp;sitekey=0x4AAAAAAABBBBccDDeE1122&amp;action=login&amp;cdata=myCustomData</pre>
+          </div>
+
+          <div class="res-json">
+            <div class="res-json__header">
+              <div class="res-json__badge"><span class="res-code res-code--202">202</span><span class="res-json__title">Response</span></div>
+              <button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button>
+            </div>
+            <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+              <pre><span class="c-brk">{</span>
+  <span class="c-key">"task_id"</span>: <span class="c-str">"a1b2c3d4-e5f6-7890-abcd-ef1234567890"</span>,
+  <span class="c-key">"status"</span>:  <span class="c-str">"accepted"</span>
+<span class="c-brk">}</span></pre>
+            </div>
+          </div>
+          <div class="res-json">
+            <div class="res-json__header">
+              <div class="res-json__badge"><span class="res-code res-code--200">200</span><span class="res-json__title">Result (via /result)</span></div>
+              <button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button>
+            </div>
+            <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+              <pre><span class="c-brk">{</span>
+  <span class="c-key">"status"</span>:       <span class="c-str">"success"</span>,
+  <span class="c-key">"elapsed_time"</span>: <span class="c-acc">2.431</span>,
+  <span class="c-key">"value"</span>:        <span class="c-str">"0.xxxxxxxx-yyyyyyyy-zzzzzzzz..."</span>
+<span class="c-brk">}</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. reCAPTCHA v3 -->
+    <div class="card" onclick="toggle(this)">
+      <div class="card__head">
+        <div class="card__icon card__icon--v3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#7fff72" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="card__meta">
+          <div class="card__title"><span class="card__method">GET</span> reCAPTCHA v3</div>
+          <div class="card__path">/recaptchav3</div>
+        </div>
+        <div class="card__chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </div>
+      <div class="card__body"><div class="card__inner">
+        <div class="divider"></div>
+        <p class="card__desc">Solves Google reCAPTCHA v3. Requires <code style="color:var(--accent2);font-family:'DM Mono',monospace;font-size:12px;">action</code> and <code style="color:var(--accent2);font-family:'DM Mono',monospace;font-size:12px;">min_score</code> in addition to the base parameters.</p>
+        <div class="params-label">Parameters</div>
+        <table class="params-table"><thead><tr><th>Name</th><th>Description</th><th>Status</th></tr></thead><tbody>
+          <tr><td>url</td><td>Target page URL</td><td><span class="tag-req">required</span></td></tr>
+          <tr><td>sitekey</td><td>reCAPTCHA site key</td><td><span class="tag-req">required</span></td></tr>
+          <tr><td>action</td><td>reCAPTCHA action label</td><td><span class="tag-req">required</span></td></tr>
+          <tr><td>min_score</td><td>Minimum acceptable score (0–1)</td><td><span class="tag-req">required</span></td></tr>
+        </tbody></table>
+        <div class="params-label">Example</div>
+        <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre><span class="c-dim">GET</span> /recaptchav3<span class="c-dim">?</span><span class="c-key">url</span>=<span class="c-str">https://example.com</span>&amp;<span class="c-key">sitekey</span>=<span class="c-str">6Le...</span>&amp;<span class="c-key">action</span>=<span class="c-str">login</span>&amp;<span class="c-key">min_score</span>=<span class="c-acc">0.7</span></pre>
+        </div>
+        <div class="params-label" style="margin-top:18px;">Responses</div>
+        <div class="response-row"><span class="res-code res-code--202">202</span><span class="res-desc">Task accepted</span></div>
+        <div class="response-row"><span class="res-code res-code--400">400</span><span class="res-desc">Missing required parameters</span></div>
+        <div class="response-row"><span class="res-code res-code--429">429</span><span class="res-desc">Server at max capacity</span></div>
+
+        <div class="full-url">
+          <div class="full-url__label"><span>Full URL</span><button onclick="copyFullUrl(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre class="full-url__body">http://127.0.0.1:5032/recaptchav3?url=https://example.com&amp;sitekey=6LeXXXXXXX-YYYYYYYa&amp;action=login&amp;min_score=0.7</pre>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--202">202</span><span class="res-json__title">Response</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"task_id"</span>: <span class="c-str">"b2c3d4e5-f6a7-8901-bcde-f12345678901"</span>,
+  <span class="c-key">"status"</span>:  <span class="c-str">"accepted"</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--200">200</span><span class="res-json__title">Result (via /result)</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"status"</span>:       <span class="c-str">"success"</span>,
+  <span class="c-key">"elapsed_time"</span>: <span class="c-acc">1.872</span>,
+  <span class="c-key">"value"</span>:        <span class="c-str">"03AGpOe..."</span>,
+  <span class="c-key">"action"</span>:       <span class="c-str">"login"</span>,
+  <span class="c-key">"min_score"</span>:    <span class="c-acc">0.7</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 3. reCAPTCHA v3 Enterprise -->
+    <div class="card" onclick="toggle(this)">
+      <div class="card__head">
+        <div class="card__icon card__icon--v3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#7fff72" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <div class="card__meta">
+          <div class="card__title"><span class="card__method">GET</span> reCAPTCHA v3 Enterprise</div>
+          <div class="card__path">/recaptchav3enterprise</div>
+        </div>
+        <div class="card__chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </div>
+      <div class="card__body"><div class="card__inner">
+        <div class="divider"></div>
+        <p class="card__desc">Enterprise variant of reCAPTCHA v3. Identical parameters — uses the enterprise-grade site key.</p>
+        <div class="params-label">Parameters</div>
+        <table class="params-table"><thead><tr><th>Name</th><th>Description</th><th>Status</th></tr></thead><tbody>
+          <tr><td>url</td><td>Target page URL</td><td><span class="tag-req">required</span></td></tr>
+          <tr><td>sitekey</td><td>Enterprise site key</td><td><span class="tag-req">required</span></td></tr>
+          <tr><td>action</td><td>reCAPTCHA action label</td><td><span class="tag-req">required</span></td></tr>
+          <tr><td>min_score</td><td>Minimum acceptable score (0–1)</td><td><span class="tag-req">required</span></td></tr>
+        </tbody></table>
+        <div class="params-label">Example</div>
+        <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre><span class="c-dim">GET</span> /recaptchav3enterprise<span class="c-dim">?</span><span class="c-key">url</span>=<span class="c-str">https://example.com</span>&amp;<span class="c-key">sitekey</span>=<span class="c-str">6Le...</span>&amp;<span class="c-key">action</span>=<span class="c-str">signup</span>&amp;<span class="c-key">min_score</span>=<span class="c-acc">0.5</span></pre>
+        </div>
+        <div class="params-label" style="margin-top:18px;">Responses</div>
+        <div class="response-row"><span class="res-code res-code--202">202</span><span class="res-desc">Task accepted</span></div>
+        <div class="response-row"><span class="res-code res-code--400">400</span><span class="res-desc">Missing required parameters</span></div>
+        <div class="response-row"><span class="res-code res-code--429">429</span><span class="res-desc">Server at max capacity</span></div>
+
+        <div class="full-url">
+          <div class="full-url__label"><span>Full URL</span><button onclick="copyFullUrl(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre class="full-url__body">http://127.0.0.1:5032/recaptchav3enterprise?url=https://example.com&amp;sitekey=6LeENT_XXXXX_YYY&amp;action=signup&amp;min_score=0.5</pre>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--202">202</span><span class="res-json__title">Response</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"task_id"</span>: <span class="c-str">"c3d4e5f6-a7b8-9012-cdef-234567890123"</span>,
+  <span class="c-key">"status"</span>:  <span class="c-str">"accepted"</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--200">200</span><span class="res-json__title">Result (via /result)</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"status"</span>:       <span class="c-str">"success"</span>,
+  <span class="c-key">"elapsed_time"</span>: <span class="c-acc">2.105</span>,
+  <span class="c-key">"value"</span>:        <span class="c-str">"03AGpOe..."</span>,
+  <span class="c-key">"action"</span>:       <span class="c-str">"signup"</span>,
+  <span class="c-key">"min_score"</span>:    <span class="c-acc">0.5</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 4. reCAPTCHA v2 -->
+    <div class="card" onclick="toggle(this)">
+      <div class="card__head">
+        <div class="card__icon card__icon--v2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ffa07f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3" ry="3"/><polyline points="9 12 11 14 15 10"/></svg>
+        </div>
+        <div class="card__meta">
+          <div class="card__title"><span class="card__method">GET</span> reCAPTCHA v2</div>
+          <div class="card__path">/recaptchav2</div>
+        </div>
+        <div class="card__chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </div>
+      <div class="card__body"><div class="card__inner">
+        <div class="divider"></div>
+        <p class="card__desc">Solves the standard reCAPTCHA v2 checkbox challenge. The solver will automatically click the iframe checkbox and wait for the token.</p>
+        <div class="params-label">Parameters</div>
+        <table class="params-table"><thead><tr><th>Name</th><th>Description</th><th>Status</th></tr></thead><tbody>
+          <tr><td>url</td><td>Target page URL</td><td><span class="tag-req">required</span></td></tr>
+          <tr><td>sitekey</td><td>reCAPTCHA site key</td><td><span class="tag-req">required</span></td></tr>
+        </tbody></table>
+        <div class="params-label">Example</div>
+        <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre><span class="c-dim">GET</span> /recaptchav2<span class="c-dim">?</span><span class="c-key">url</span>=<span class="c-str">https://example.com</span>&amp;<span class="c-key">sitekey</span>=<span class="c-str">6Le...</span></pre>
+        </div>
+        <div class="params-label" style="margin-top:18px;">Responses</div>
+        <div class="response-row"><span class="res-code res-code--202">202</span><span class="res-desc">Task accepted</span></div>
+        <div class="response-row"><span class="res-code res-code--400">400</span><span class="res-desc">Missing required parameters</span></div>
+        <div class="response-row"><span class="res-code res-code--429">429</span><span class="res-desc">Server at max capacity</span></div>
+
+        <div class="full-url">
+          <div class="full-url__label"><span>Full URL</span><button onclick="copyFullUrl(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre class="full-url__body">http://127.0.0.1:5032/recaptchav2?url=https://example.com&amp;sitekey=6LeXXXXXXX-YYYYYYYa</pre>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--202">202</span><span class="res-json__title">Response</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"task_id"</span>: <span class="c-str">"d4e5f6a7-b8c9-0123-defa-345678901234"</span>,
+  <span class="c-key">"status"</span>:  <span class="c-str">"accepted"</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--200">200</span><span class="res-json__title">Result (via /result)</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"status"</span>:       <span class="c-str">"success"</span>,
+  <span class="c-key">"elapsed_time"</span>: <span class="c-acc">3.219</span>,
+  <span class="c-key">"value"</span>:        <span class="c-str">"03AGpOe..."</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 5. reCAPTCHA v2 Invisible -->
+    <div class="card" onclick="toggle(this)">
+      <div class="card__head">
+        <div class="card__icon card__icon--v2">
+          <!-- eye icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ffa07f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="card__meta">
+          <div class="card__title"><span class="card__method">GET</span> reCAPTCHA v2 Invisible</div>
+          <div class="card__path">/recaptchav2invisible</div>
+        </div>
+        <div class="card__chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </div>
+      <div class="card__body"><div class="card__inner">
+        <div class="divider"></div>
+        <p class="card__desc">Solves the invisible variant of reCAPTCHA v2. No visible checkbox — the challenge executes silently after a short delay.</p>
+        <div class="params-label">Parameters</div>
+        <table class="params-table"><thead><tr><th>Name</th><th>Description</th><th>Status</th></tr></thead><tbody>
+          <tr><td>url</td><td>Target page URL</td><td><span class="tag-req">required</span></td></tr>
+          <tr><td>sitekey</td><td>reCAPTCHA invisible site key</td><td><span class="tag-req">required</span></td></tr>
+        </tbody></table>
+        <div class="params-label">Example</div>
+        <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre><span class="c-dim">GET</span> /recaptchav2invisible<span class="c-dim">?</span><span class="c-key">url</span>=<span class="c-str">https://example.com</span>&amp;<span class="c-key">sitekey</span>=<span class="c-str">6Le...</span></pre>
+        </div>
+        <div class="params-label" style="margin-top:18px;">Responses</div>
+        <div class="response-row"><span class="res-code res-code--202">202</span><span class="res-desc">Task accepted</span></div>
+        <div class="response-row"><span class="res-code res-code--400">400</span><span class="res-desc">Missing required parameters</span></div>
+        <div class="response-row"><span class="res-code res-code--429">429</span><span class="res-desc">Server at max capacity</span></div>
+
+        <div class="full-url">
+          <div class="full-url__label"><span>Full URL</span><button onclick="copyFullUrl(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre class="full-url__body">http://127.0.0.1:5032/recaptchav2invisible?url=https://example.com&amp;sitekey=6LeINV_XXXXX_YYY</pre>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--202">202</span><span class="res-json__title">Response</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"task_id"</span>: <span class="c-str">"e5f6a7b8-c9d0-1234-efab-456789012345"</span>,
+  <span class="c-key">"status"</span>:  <span class="c-str">"accepted"</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--200">200</span><span class="res-json__title">Result (via /result)</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"status"</span>:       <span class="c-str">"success"</span>,
+  <span class="c-key">"elapsed_time"</span>: <span class="c-acc">1.654</span>,
+  <span class="c-key">"value"</span>:        <span class="c-str">"03AGpOe..."</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 6. reCAPTCHA v2 Enterprise -->
+    <div class="card" onclick="toggle(this)">
+      <div class="card__head">
+        <div class="card__icon card__icon--v2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ffa07f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div class="card__meta">
+          <div class="card__title"><span class="card__method">GET</span> reCAPTCHA v2 Enterprise</div>
+          <div class="card__path">/recaptchav2enterprise</div>
+        </div>
+        <div class="card__chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </div>
+      <div class="card__body"><div class="card__inner">
+        <div class="divider"></div>
+        <p class="card__desc">Enterprise variant of reCAPTCHA v2. Uses the same checkbox-based solving flow but targets enterprise-grade site keys.</p>
+        <div class="params-label">Parameters</div>
+        <table class="params-table"><thead><tr><th>Name</th><th>Description</th><th>Status</th></tr></thead><tbody>
+          <tr><td>url</td><td>Target page URL</td><td><span class="tag-req">required</span></td></tr>
+          <tr><td>sitekey</td><td>Enterprise site key</td><td><span class="tag-req">required</span></td></tr>
+        </tbody></table>
+        <div class="params-label">Example</div>
+        <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre><span class="c-dim">GET</span> /recaptchav2enterprise<span class="c-dim">?</span><span class="c-key">url</span>=<span class="c-str">https://example.com</span>&amp;<span class="c-key">sitekey</span>=<span class="c-str">6Le...</span></pre>
+        </div>
+        <div class="params-label" style="margin-top:18px;">Responses</div>
+        <div class="response-row"><span class="res-code res-code--202">202</span><span class="res-desc">Task accepted</span></div>
+        <div class="response-row"><span class="res-code res-code--400">400</span><span class="res-desc">Missing required parameters</span></div>
+        <div class="response-row"><span class="res-code res-code--429">429</span><span class="res-desc">Server at max capacity</span></div>
+
+        <div class="full-url">
+          <div class="full-url__label"><span>Full URL</span><button onclick="copyFullUrl(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre class="full-url__body">http://127.0.0.1:5032/recaptchav2enterprise?url=https://example.com&amp;sitekey=6LeENT2_XXXXX_YYY</pre>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--202">202</span><span class="res-json__title">Response</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"task_id"</span>: <span class="c-str">"f6a7b8c9-d0e1-2345-fabc-567890123456"</span>,
+  <span class="c-key">"status"</span>:  <span class="c-str">"accepted"</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--200">200</span><span class="res-json__title">Result (via /result)</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"status"</span>:       <span class="c-str">"success"</span>,
+  <span class="c-key">"elapsed_time"</span>: <span class="c-acc">2.988</span>,
+  <span class="c-key">"value"</span>:        <span class="c-str">"03AGpOe..."</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 7. Get Result -->
+    <div class="card" onclick="toggle(this)">
+      <div class="card__head">
+        <div class="card__icon card__icon--res">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#b47fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div class="card__meta">
+          <div class="card__title"><span class="card__method">GET</span> Get Result</div>
+          <div class="card__path">/result</div>
+        </div>
+        <div class="card__chevron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </div>
+      <div class="card__body"><div class="card__inner">
+        <div class="divider"></div>
+        <p class="card__desc">Poll this endpoint to retrieve the solving result using the <code style="color:var(--accent2);font-family:'DM Mono',monospace;font-size:12px;">task_id</code> returned when a task was submitted. Tasks expire after 5 minutes.</p>
+        <div class="params-label">Parameters</div>
+        <table class="params-table"><thead><tr><th>Name</th><th>Description</th><th>Status</th></tr></thead><tbody>
+          <tr><td>id</td><td>The task ID from submission</td><td><span class="tag-req">required</span></td></tr>
+        </tbody></table>
+        <div class="params-label">Example</div>
+        <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre><span class="c-dim">GET</span> /result<span class="c-dim">?</span><span class="c-key">id</span>=<span class="c-str">a1b2c3d4-...</span></pre>
+        </div>
+        <div class="params-label" style="margin-top:18px;">Responses</div>
+        <div class="response-row"><span class="res-code res-code--200">200</span><span class="res-desc">Solved — token returned in <code style="font-family:'DM Mono',monospace;color:var(--accent2);font-size:11px;">value</code></span></div>
+        <div class="response-row"><span class="res-code res-code--202">202</span><span class="res-desc">Still processing — poll again</span></div>
+        <div class="response-row"><span class="res-code res-code--404">404</span><span class="res-desc">Invalid or expired task ID</span></div>
+        <div class="response-row"><span class="res-code res-code--408">408</span><span class="res-desc">Task timed out (5 min limit)</span></div>
+
+        <div class="full-url">
+          <div class="full-url__label"><span>Full URL</span><button onclick="copyFullUrl(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <pre class="full-url__body">http://127.0.0.1:5032/result?id=a1b2c3d4-e5f6-7890-abcd-ef1234567890</pre>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--200">200</span><span class="res-json__title">Success</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"status"</span>:       <span class="c-str">"success"</span>,
+  <span class="c-key">"elapsed_time"</span>: <span class="c-acc">2.431</span>,
+  <span class="c-key">"value"</span>:        <span class="c-str">"0.xxxxxxxx-yyyyyyyy-zzzzzzzz..."</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--202">202</span><span class="res-json__title">Still Processing</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"status"</span>:     <span class="c-str">"process"</span>,
+  <span class="c-key">"message"</span>:   <span class="c-str">"solving turnstile"</span>,
+  <span class="c-key">"start_time"</span>: <span class="c-acc">1706000000.123</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+        <div class="res-json">
+          <div class="res-json__header"><div class="res-json__badge"><span class="res-code res-code--408">408</span><span class="res-json__title">Timeout</span></div><button class="code-block__copy" onclick="copyCode(this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>copy</button></div>
+          <div class="code-block"><div class="code-block__header"><div class="code-block__dots"><span></span><span></span><span></span></div><span style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace;">application/json</span></div>
+            <pre><span class="c-brk">{</span>
+  <span class="c-key">"status"</span>:       <span class="c-str">"error"</span>,
+  <span class="c-key">"elapsed_time"</span>: <span class="c-acc">300.012</span>,
+  <span class="c-key">"value"</span>:        <span class="c-str">"timeout"</span>,
+  <span class="c-key">"message"</span>:      <span class="c-str">"Task timeout"</span>
+<span class="c-brk">}</span></pre>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+
+
+  <!-- Requirements -->
+  <div class="req-section">
+    <div class="section-label">Requirements</div>
+    <div class="req-grid">
+
+      <div class="req-card">
+        <div class="req-card__head">
+          <div class="req-card__icon req-card__icon--py">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3776ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          </div>
+          <h4>Python</h4>
+        </div>
+        <p>Python 3.9 or higher is required to run the server.</p>
+        <div class="req-tags"><span class="req-tag">python &ge; 3.9</span></div>
+      </div>
+
+      <div class="req-card">
+        <div class="req-card__head">
+          <div class="req-card__icon req-card__icon--pkg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#7fff72" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+          <h4>Dependencies</h4>
+        </div>
+        <p>Install all required packages via pip before starting.</p>
+        <div class="req-tags">
+          <span class="req-tag">fastapi</span>
+          <span class="req-tag">uvicorn</span>
+          <span class="req-tag">camoufox</span>
+          <span class="req-tag">loguru</span>
+        </div>
+      </div>
+
+      <div class="req-card">
+        <div class="req-card__head">
+          <div class="req-card__icon req-card__icon--sys">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#5ee6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <h4>System</h4>
+        </div>
+        <p>Camoufox requires a browser binary. Run the download once before first use.</p>
+        <div class="req-tags"><span class="req-tag">camoufox download</span></div>
+      </div>
+
+      <div class="req-card">
+        <div class="req-card__head">
+          <div class="req-card__icon req-card__icon--net">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#b47fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <h4>Network</h4>
+        </div>
+        <p>Outbound internet access is required to reach Cloudflare &amp; Google CAPTCHA servers.</p>
+        <div class="req-tags"><span class="req-tag">proxy (optional)</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footer">Async CAPTCHA Solver · Camoufox Powered · All tasks auto-expire after 1 hour</div>
+
+</div>
+
+<script>
+  function toggle(card) {
+    const wasOpen = card.classList.contains('open');
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('open'));
+    if (!wasOpen) card.classList.add('open');
+  }
+  function copyBase(btn) {
+    const text = document.getElementById('baseUrl').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.classList.add('copied');
+      setTimeout(() => btn.classList.remove('copied'), 1400);
+    });
+  }
+  function copyFullUrl(btn) {
+    const pre = btn.closest('.full-url').querySelector('pre');
+    navigator.clipboard.writeText(pre.textContent.trim()).then(() => {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7fff72" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> copied';
+      btn.style.color = '#7fff72';
+      setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1400);
+    });
+  }
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    navigator.clipboard.writeText(pre.textContent.trim()).then(() => {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7fff72" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> copied';
+      btn.style.color = '#7fff72';
+      setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1400);
+    });
+  }
+</script>
+</body>
+</html>
