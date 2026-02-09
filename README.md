@@ -1,3 +1,5 @@
+<img width="1919" height="1079" alt="Image" src="https://github.com/user-attachments/assets/6f9ac168-00c4-41e2-9dd2-284c0de9dfbb" />
+
 ### Usage
 
 1. Download ZIP <a href="https://codeload.github.com/agathasangkara/solver/zip/refs/heads/main">here</a> and extract the ZIP
